@@ -1,152 +1,105 @@
 import React, { useEffect, useState } from 'react'
 import api from '../api.js';
-import { FiPlus } from 'react-icons/fi';
 
-const initialState = {
-    title: "",
-    amount: "",
-    category: "General",
-    date: "",
-    type: "expense"
-}
+const initialState = { title: "", amount: "", category: "General", date: "", type: "expense" }
 
 const ExpenseForm = ({ fetchExpense, editExpense, setModel }) => {
-    const [form, setForm] = useState(initialState);
-    const [error, setError] = useState("");
-    const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState(initialState);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        if (editExpense) {
-            setForm({
-                title: editExpense.title,
-                amount: editExpense.amount,
-                category: editExpense.category,
-                date: new Date(editExpense.date).toISOString().split("T")[0],
-                type: editExpense.type
-            })
-        }
-    }, [editExpense])
-
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: name == "amount" ? Number(value) : value }));
+  useEffect(() => {
+    if (editExpense) {
+      setForm({
+        ...editExpense,
+        date: new Date(editExpense.date).toISOString().split("T")[0],
+        amount: editExpense.amount.toString()
+      })
     }
+  }, [editExpense])
 
-    const validate = () => {
-        if (!form.title.trim()) {
-            return "Title is not provided !"
-        }
-        if (!form.amount || Number(form.amount) <= 0) {
-            return "Enter a valid amount !"
-        }
-        if (!["income", "expense"].includes(form.type)) {
-            return "Type is not valid"
-        }
-        return null;
-    }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: name === "amount" ? value : value }));
+  }
 
-    const payload = {
-        title: form.title.trim(),
+  const validate = () => {
+    if (!form.title.trim()) return "Title required!";
+    if (!form.amount || Number(form.amount) <= 0) return "Valid amount needed!";
+    return null;
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    const v = validate();
+    if (v) return setError(v);
+
+    try {
+      setLoading(true);
+      const payload = {
+        ...form,
         amount: Number(form.amount),
-        category: form.category || "General",
-        date: Date(form.date),
-        type: form.type
+        date: form.date
+      };
+
+      if (editExpense) {
+        await api.put(`/update-expense/${editExpense._id}`, payload);
+      } else {
+        await api.post('/create-expense', payload);
+      }
+
+      setForm(initialState);
+      fetchExpense();
+      setModel();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Network error!");
+    } finally {
+      setLoading(false);
     }
+  }
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError("");
-        const v = validate();
-        if (v) {
-            setError(v);
-            return;
-        }
-        try {
-            setLoading(true);
-            let expense;
-            if (editExpense) {
-                expense = await api.put(`/update-expense/${editExpense._id}`, payload);
-            } else {
-                expense = await api.post('/create-expense', payload);
-            }
-            setForm(initialState);
-            if (expense) {
-                fetchExpense();
-                setModel(false);
-            };
-        } catch (error) {
-            console.error("Cannot add expense: ", error);
-            setError(
-                error?.response?.data?.message || "Network error try again..."
-            )
-        } finally {
-            setLoading(false);
-        }
-        console.log(form);
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-2xl font-bold text-center text-gray-800">
+        {editExpense ? "Edit" : "Add"} Expense
+      </h2>
 
-    }
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <input name="title" value={form.title} onChange={handleChange} placeholder="Title" required
+          className="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
 
-    return (
-        <form onSubmit={handleSubmit} className='m-6'>
-            <div className="grid grid-cols-1 gap-3 w-full">
-                <input
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    placeholder='Title (e.g. Night out)'
-                    className='p-2 border rounded'
-                />
-                <input
-                    type="number"
-                    name="amount"
-                    value={form.amount}
-                    onChange={handleChange}
-                    placeholder='Enter the amount'
-                    className='p-2 border rounded'
-                />
-                <select
-                    name="category"
-                    value={form.category}
-                    onChange={handleChange}
-                    className='p-2 border rounded'
-                >
-                    <option> General </option>
-                    <option> Food </option>
-                    <option> Transport </option>
-                    <option> Salary </option>
-                    <option> Utilities </option>
-                </select>
-                <input
-                    type="date"
-                    name="date"
-                    value={form.date}
-                    onChange={handleChange}
-                    className='p-2 border rounded'
-                />
-                <select
-                    name="type"
-                    value={form.type}
-                    onChange={handleChange}
-                    className='p-2 border rounded'
-                >
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                </select>
-            </div>
-            {error && (
-                <p className='text-sm text-red-600 mt-2'>{error}</p>
-            )}
-            <div className='mt-4 flex justify-center items-end'>
-                <button
-                    type='submit'
-                    disabled={loading}
-                    className='p-2 px-4 py-2 rounded bg-indigo-500 text-white disabled:opacity-60'
-                >
-                    {loading ? "Saving..." : "ADD"}
-                </button>
-            </div>
-        </form>
-    )
+        <input type="number" name="amount" value={form.amount} onChange={handleChange} placeholder="Amount" required
+          className="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+
+        <select name="category" value={form.category} onChange={handleChange}
+          className="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+          {["General", "Food", "Transport", "Salary", "Utilities"].map(c => (
+            <option key={c}>{c}</option>
+          ))}
+        </select>
+
+        <input type="date" name="date" value={form.date} onChange={handleChange} required
+          className="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500" />
+
+        <select name="type" value={form.type} onChange={handleChange}
+          className="p-3 border rounded-lg sm:col-span-2 focus:ring-2 focus:ring-indigo-500">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+      </div>
+
+      {error && <p className="text-red-600 text-center font-medium">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg transition transform hover:scale-105 disabled:opacity-60"
+      >
+        {loading ? "Saving..." : editExpense ? "UPDATE" : "ADD EXPENSE"}
+      </button>
+    </form>
+  )
 }
 
 export default ExpenseForm
