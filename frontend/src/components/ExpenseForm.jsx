@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import api from '../api.js';
 import { FiPlus } from 'react-icons/fi';
 
@@ -10,10 +10,22 @@ const initialState = {
     type: "expense"
 }
 
-const ExpenseForm = () => {
+const ExpenseForm = ({ fetchExpense, editExpense, setModel }) => {
     const [form, setForm] = useState(initialState);
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (editExpense) {
+            setForm({
+                title: editExpense.title,
+                amount: editExpense.amount,
+                category: editExpense.category,
+                date: new Date(editExpense.date).toISOString().split("T")[0],
+                type: editExpense.type
+            })
+        }
+    }, [editExpense])
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -51,8 +63,17 @@ const ExpenseForm = () => {
         }
         try {
             setLoading(true);
-            const expense = await api.post('/create-expense', payload);
+            let expense;
+            if (editExpense) {
+                expense = await api.put(`/update-expense/${editExpense._id}`, payload);
+            } else {
+                expense = await api.post('/create-expense', payload);
+            }
             setForm(initialState);
+            if (expense) {
+                fetchExpense();
+                setModel(false);
+            };
         } catch (error) {
             console.error("Cannot add expense: ", error);
             setError(

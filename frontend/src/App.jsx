@@ -6,7 +6,7 @@ function App() {
 
   return (
     <>
-    <div className="min-h-screen flex justify-center items-center bg-gray-300">
+    <div className="min-h-screen flex justify-center items-center bg-gray-700">
         <Dashboard/>
       </div>
     </>
